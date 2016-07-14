@@ -15,6 +15,8 @@ dynamodb_resource = boto3.resource('dynamodb')
 
 #################################################################
 ### Defining our functions                                   ####
+### Most these copied from
+### https://github.com/awslabs/aws-lambda-ddns-function/blob/master/union.py
 #################################################################
 
 def get_zone_id(zone_name):
@@ -114,6 +116,11 @@ default_zone = "%s.%s" % (default_subdomain, root_domain)
 ## get list of running instances
 ## http://boto3.readthedocs.io/en/latest/guide/migrationec2.html#checking-what-instances-are-running
 
+## original blog article that me started
+## https://aws.amazon.com/blogs/compute/building-a-dynamic-dns-for-route-53-using-cloudwatch-events-and-lambda/
+
+## code for the function in the blog article
+## https://github.com/awslabs/aws-lambda-ddns-function
 
 ################################################################
 ### Running Code                                            ####
