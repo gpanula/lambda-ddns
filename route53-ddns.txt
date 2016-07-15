@@ -1,0 +1,73 @@
+https://aws.amazon.com/blogs/compute/building-a-dynamic-dns-for-route-53-using-cloudwatch-events-and-lambda/
+
+[zaphod]:[/home/pang/aws] $ aws iam create-policy --policy-name ddns-lambda-policy --policy-document file://ddns-pol.json
+{
+    "Policy": {
+        "PolicyName": "ddns-lambda-policy", 
+        "CreateDate": "2016-07-08T18:52:37.832Z", 
+        "AttachmentCount": 0, 
+        "IsAttachable": true, 
+        "PolicyId": "ANPAJIA6G2HBDMUTX7G4U", 
+        "DefaultVersionId": "v1", 
+        "Path": "/", 
+        "Arn": "arn:aws:iam::235846210842:policy/ddns-lambda-policy", 
+        "UpdateDate": "2016-07-08T18:52:37.832Z"
+    }
+}
+[zaphod]:[/home/pang/aws] $ aws iam create-role --role-name ddns-lambda-role --assume-role-policy-document file://ddns-trust.json
+{
+    "Role": {
+        "AssumeRolePolicyDocument": {
+            "Version": "2012-10-17", 
+            "Statement": [
+                {
+                    "Action": "sts:AssumeRole", 
+                    "Principal": {
+                        "Service": "lambda.amazonaws.com"
+                    }, 
+                    "Effect": "Allow", 
+                    "Sid": ""
+                }
+            ]
+        }, 
+        "RoleId": "AROAILE5QRL7WFRI2HKOO", 
+        "CreateDate": "2016-07-08T18:52:53.322Z", 
+        "RoleName": "ddns-lambda-role", 
+        "Path": "/", 
+        "Arn": "arn:aws:iam::235846210842:role/ddns-lambda-role"
+    }
+}
+[zaphod]:[/home/pang/aws] $ aws iam attach-role-policy --role-name ddns-lambda-role --policy-arn "arn:aws:iam::235846210842:policy/ddns-lambda-policy"
+[zaphod]:[/home/pang/aws] $ aws lambda create-function --function-name ddns_lambda --runtime python2.7 --role "arn:aws:iam::235846210842:policy/ddns-lambda-policy" --handler union.lambda_handler --timeout 30 --zip-file fileb:///home^C
+[zaphod]:[/home/pang/aws] $ aws lambda create-function --function-name ddns_lambda --runtime python2.7 --role "arn:aws:iam::235846210842:policy/ddns-lambda-policy" --handler union.lambda_handler --timeout 30 --zip-file fileb://union.py.zip
+
+A client error (ValidationException) occurred when calling the CreateFunction operation: 1 validation error detected: Value 'arn:aws:iam::235846210842:policy/ddns-lambda-policy' at 'role' failed to satisfy constraint: Member must satisfy regular expression pattern: arn:aws:iam::\d{12}:role/?[a-zA-Z_0-9+=,.@\-_/]+
+[zaphod]:[/home/pang/aws] $ aws lambda create-function --function-name ddns_lambda --runtime python2.7 --role "arn:aws:iam::235846210842:role/ddns-lambda-role" --handler union.lambda_handler --timeout 30 --zip-file fileb://union.py.zip
+{
+    "CodeSha256": "Ho7yoabYeILgQRU/hdB7n0EPC6CXtBTquiLu0GDeuhw=", 
+    "FunctionName": "ddns_lambda", 
+    "CodeSize": 4753, 
+    "MemorySize": 128, 
+    "FunctionArn": "arn:aws:lambda:us-east-1:235846210842:function:ddns_lambda", 
+    "Version": "$LATEST", 
+    "Role": "arn:aws:iam::235846210842:role/ddns-lambda-role", 
+    "Timeout": 30, 
+    "LastModified": "2016-07-08T18:59:54.407+0000", 
+    "Handler": "union.lambda_handler", 
+    "Runtime": "python2.7", 
+    "Description": ""
+}
+[zaphod]:[/home/pang/aws] $ aws events put-rule --event-pattern "{\"source\":[\"aws.ec2\"],\"detail-type\":[\"EC2 Instance State-change Notification\"],\"detail\":{\"state\":[\"running\",\"shutting-down\",\"stopped\"]}}" --state ENABLED --name ec2_lambda_ddns_rule
+{
+    "RuleArn": "arn:aws:events:us-east-1:235846210842:rule/ec2_lambda_ddns_rule"
+}
+[zaphod]:[/home/pang/aws] $ aws events put-targets --rule ec2_lambda_ddns_rule --targets Id=id20160708ddnslamba,Arn="arn:aws:lambda:us-east-1:235846210842:function:ddns_lambda"
+{
+    "FailedEntries": [], 
+    "FailedEntryCount": 0
+}
+[zaphod]:[/home/pang/aws] $ aws lambda add-permission --function-name ddns_lambda --statement-id id20160708ddnslambaperms --action lambda:InvokeFunction --principal events.amazonaws.com --source-arn "arn:aws:events:us-east-1:235846210842:rule/ec2_lambda_ddns_rule"
+{
+    "Statement": "{\"Condition\":{\"ArnLike\":{\"AWS:SourceArn\":\"arn:aws:events:us-east-1:235846210842:rule/ec2_lambda_ddns_rule\"}},\"Action\":[\"lambda:InvokeFunction\"],\"Resource\":\"arn:aws:lambda:us-east-1:235846210842:function:ddns_lambda\",\"Effect\":\"Allow\",\"Principal\":{\"Service\":\"events.amazonaws.com\"},\"Sid\":\"id20160708ddnslambaperms\"}"
+}
+
