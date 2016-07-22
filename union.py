@@ -13,7 +13,11 @@
 ### Define a function tag with a space-seperated list of functions
 ###
 ### Use the imednet-env tag to define which sub-domain to register
-### the dns records in
+### the dns records in. 
+###
+### !!! NOTE !!! if imednet-env tag is defined, it'll set the default_zone
+### to imednet.com, regardless of what dhcp option set is configured for
+### use the override_zone tag to override set a different domain
 ### 
 ### To test this code via the lambda console                
 ### Configure a Schedule Event with this detail line        
@@ -87,6 +91,14 @@ def lambda_handler(event, context):
         # name is our variable for holding & modify the value of Name
         name = []
         
+        # init some more variables
+        target_env = []
+        override_zone = []
+        zone_names = []
+        default_zone = []
+        default_subdomain = []
+        vmzone = []
+        
         # Now we loop thru all of the tags an instance has
         # we crawl thru them once and set our variables with their values here
         for tag in instance.tags:
@@ -116,38 +128,45 @@ def lambda_handler(event, context):
                 root_domain = tag.get('Value').lstrip().lower()
     
         # we have finished looping thru the tags
-    
-        # try to get the default domain from dhcp option set
-        vpc_id = instance.vpc_id
-        vpc = ec2.Vpc(vpc_id)
-        dhcp_options_id = vpc.dhcp_options_id
-        dhcp_options = ec2.DhcpOptions(dhcp_options_id)
-        dhcp_configurations = dhcp_options.dhcp_configurations
         
-        # init zone_names variable to an empty list
-        zone_names = []
-        
-        # Now we try to pull  out the default zone from the dhcp options
-        for opts in dhcp_configurations:
-            if 'domain-name' == opts['Key']:
-                zone_names.append(map(lambda x: x['Value'] , opts['Values']))
-        
-        # Now try to set our default_zone to match whatever we think we found in the dhcp options set        
-        default_zone = zone_names[0][0]
-        
-        # Now we check to make sure we actually found something
-        if not default_zone:
-            print('Failed to find a domain-name in the dhcp options for dhcp options id %s ' % (dhcp_options_id))
+        if override_zone:
+            # we were given an override_zone, so we'll use that
+            print('Setting default_zone to match override_zone tag of %s' % override_zone)
+            default_zone = override_zone
+            vmzone = override_zone
             
-            # Now manually define the default domain aka zone
-            default_zone = "aws.imednet.com"
+        if not default_zone:
+            # No default_zone, so try to get the default domain from dhcp option set
+            vpc_id = instance.vpc_id
+            vpc = ec2.Vpc(vpc_id)
+            dhcp_options_id = vpc.dhcp_options_id
+            dhcp_options = ec2.DhcpOptions(dhcp_options_id)
+            dhcp_configurations = dhcp_options.dhcp_configurations
+        
+            # Now we try to pull out the default zone from the dhcp options
+            for opts in dhcp_configurations:
+                if 'domain-name' == opts['Key']:
+                    zone_names.append(map(lambda x: x['Value'] , opts['Values']))
+        
+            # Now try to set our default_zone to match whatever we think we found in the dhcp options set        
+            default_zone = zone_names[0][0]
+        
+        
+        if default_zone:
+            # determine the domain where the DNS records will be registered
+            if not target_env:
+                # weren't given a target_env, so likely(hoping) the first name is the sub-domain
+                default_subdomain = default_zone.split('.')[0]
+            else:
+                default_subdomain = target_env
         else:
-            print('domain-name %s found in the dhcp options.  Setting default_zone to that.' % default_zone)
+            # no override_zone given and no default found in the dhcp option set
+            default_zone = "aws.imednet.net"
+            print('Not default domain detected. Going to use %s' % default_zone)
+            default_subdomain = default_zone.split('.')[0]
+            
         
         # Now some more domain setup bits    
-        # This the domain where A records will get registered
-        default_subdomain = default_zone.split('.')[0]
-            
         # default root domain and tld
         primary_domain = default_zone.split('.')[1]
         tld_domain = default_zone.split('.')[2]
@@ -159,24 +178,14 @@ def lambda_handler(event, context):
         # Here's how we will build records
         # A record is name.default_zone
         # CNAME is function.target_env.root_domain and points to name.default_zone
-    
-        # now we check if a specific zone was given
-        # it'll error out if zone isn't defined
-        try:
-            # a zone was specified, so we'll registered everything in that zone
-            print('Setting default_zone to match override_zone tag of %s' % override_zone)
-            default_zone = override_zone
-            vmzone = ovveride_zone
-        except:
-            print('Custom zone not defined')
-            try:
-                print('Setting vmzone to %s.%s' % (target_env, root_domain))
-                vmzone = "%s.%s" % (target_env, root_domain)
-            except:
-                print('target_env not defined, using default_zone')
-                vmzone = default_zone
-    
-    
+        if target_env:
+            print('Setting vmzone to %s.%s' % (target_env, root_domain))
+            vmzone = "%s.%s" % (target_env, root_domain)
+        else:
+            print('target_env not defined, using default_zone')
+            vmzone = default_zone
+            
+        
         # we need zone ids so we can update them
         # if can't get zone ids, then we just bail out here
         try:
