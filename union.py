@@ -1,3 +1,26 @@
+################################################################################
+### Dynamic DNS update for EC2 instances
+###
+### This script triggers on an EC2 starting up or stopping
+### It'll then either add or remove DNS entries(include reverse look-ups)
+### for the EC2 instance
+### 
+### The script will look at the dhcp options set for the instance's VPC
+### and try to pull the default domain from that
+### You can override that by defining the override_zone tag
+###
+### The script will define a CNAME for each function you define
+### Define a function tag with a space-seperated list of functions
+###
+### Use the imednet-env tag to define which sub-domain to register
+### the dns records in
+### 
+### To test this code via the lambda console                
+### Configure a Schedule Event with this detail line        
+### "detail": {"instance-id":"i-44d75ac2","state":"running"}, 
+###
+################################################################################
+
 import json
 import boto3
 import re
@@ -32,10 +55,6 @@ dynamodb_resource = boto3.resource('dynamodb')
 
 ################################################################
 ### Running Code                                            ####
-###                                                         ####
-### To test this code via the lambda console                ####
-### Configure a Schedule Event with this detail line        ####
-### "detail": {"instance-id":"i-44d75ac2","state":"running"}, ##
 ################################################################
 
 # Our list of Route53 hosted domains
@@ -61,6 +80,15 @@ def lambda_handler(event, context):
         print('################################################################')
         print('#########     instance id %s                 ###########' % instance.id)
         print('################################################################')
+        
+        # init name just in case the instance doesn't have a Name
+        # Yes, case matters.  Name != name
+        # Name is the tag Amazon uses to give an instance a friendly name
+        # name is our variable for holding & modify the value of Name
+        name = []
+        
+        # Now we loop thru all of the tags an instance has
+        # we crawl thru them once and set our variables with their values here
         for tag in instance.tags:
             if 'override_zone' in tag.get('Key',{}):
                 # set this to force where A & CNAME records will be registered
@@ -96,13 +124,18 @@ def lambda_handler(event, context):
         dhcp_options = ec2.DhcpOptions(dhcp_options_id)
         dhcp_configurations = dhcp_options.dhcp_configurations
         
+        # init zone_names variable to an empty list
         zone_names = []
+        
+        # Now we try to pull  out the default zone from the dhcp options
         for opts in dhcp_configurations:
             if 'domain-name' == opts['Key']:
                 zone_names.append(map(lambda x: x['Value'] , opts['Values']))
-                
+        
+        # Now try to set our default_zone to match whatever we think we found in the dhcp options set        
         default_zone = zone_names[0][0]
         
+        # Now we check to make sure we actually found something
         if not default_zone:
             print('Failed to find a domain-name in the dhcp options for dhcp options id %s ' % (dhcp_options_id))
             
@@ -110,7 +143,8 @@ def lambda_handler(event, context):
             default_zone = "aws.imednet.com"
         else:
             print('domain-name %s found in the dhcp options.  Setting default_zone to that.' % default_zone)
-            
+        
+        # Now some more domain setup bits    
         # This the domain where A records will get registered
         default_subdomain = default_zone.split('.')[0]
             
@@ -161,15 +195,23 @@ def lambda_handler(event, context):
             print(e)
             exit()
     
-        # if no function, then default to name
+        # if the instance has no function(tag), then default to empty list
+        # the empty list will prevent attempting to create a CNAME for each function
         try:
             # and in case something has multiple fuctions
             # define the tag function with a space seperate list of functions
             funlist = function.split(' ')
         except:
-            function = name
-            funlist = function.split(' ')
+            funlist = []
     
+    
+        # if Name isn't defined(happens with auto scaling group launched instances)
+        # default to the private_dns_name and the quick & dirty name santizing
+        # that follows will strip it down to the first part of the FQDN
+        if not name:
+            print 'No Name found'
+            name = instance.private_dns_name
+            
         # make sure we have a name
         try:
             # now some really quick santizing of the Name
@@ -259,7 +301,10 @@ def lambda_handler(event, context):
             print('Found public ip address of %s' % instance.public_ip_address)
             #print("Attempting to remove A record for {}.{} A {}".format(name, default_zone, instance.public_ip_address))
             try:
-                modify_resource_record(default_zone_id, name, default_zone, 'A', instance.public_ip_address, mod_action)
+                # map public ip to name-public
+                name_public = name + '-public'
+                modify_resource_record(default_zone_id, name, default_zone, 'A', instance.private_ip_address, mod_action)
+                modify_resource_record(default_zone_id, name_public, default_zone, 'A', instance.public_ip_address, mod_action)
                 modify_resource_record(reverse_lookup_zone_id, reversed_ip_address, 'in-addr.arpa', 'PTR', fullname, mod_action)
             except BaseException as e:
                 print e
@@ -267,7 +312,10 @@ def lambda_handler(event, context):
             for fun in funlist:
                 #print("Attempting to remove CNAME record for {}.{} CNAME {}".format(fun, vmzone, instance.public_dns_name))
                 try:
+                    # map public functions to fun-public
+                    fun_public = fun + '-public'
                     modify_resource_record(zone_id, fun, vmzone, 'CNAME', instance.public_dns_name, mod_action)
+                    modify_resource_record(zone_id, fun_public, vmzone, 'CNAME', instance.public_dns_name, mod_action)
                 except BaseException as e:
                     print e
     
