@@ -181,17 +181,24 @@ for instance in instances:
             vmzone = default_zone
 
 
-    default_zone_id = get_zone_id(default_zone)
-    zone_id = get_zone_id(vmzone)
+    # we need zone ids so we can update them
+    # if can't get zone ids, then we just bail out here
+    try:
+        default_zone_id = get_zone_id(default_zone)
+        zone_id = get_zone_id(vmzone)
+    except BaseException as e:
+        print('Failed to retrieve zone ids.\n')
+        print(e)
+        exit()
 
     # if no function, then default to name
     try:
         # and in case something has multiple fuctions
         # define the tag function with a space seperate list of functions
-        funlist = function.split(',')
+        funlist = function.split(' ')
     except:
         function = name
-        funlist = function.split(',')
+        funlist = function.split(' ')
 
     # make sure we have a name
     try:
