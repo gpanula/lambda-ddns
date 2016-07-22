@@ -15,9 +15,6 @@
 ### Use the imednet-env tag to define which sub-domain to register
 ### the dns records in. 
 ###
-### !!! NOTE !!! if imednet-env tag is defined, it'll set the default_zone
-### to imednet.com, regardless of what dhcp option set is configured for
-### use the override_zone tag to override set a different domain
 ### 
 ### To test this code via the lambda console                
 ### Configure a Schedule Event with this detail line        
@@ -51,7 +48,7 @@ dynamodb_resource = boto3.resource('dynamodb')
 ## get list of running instances
 ## http://boto3.readthedocs.io/en/latest/guide/migrationec2.html#checking-what-instances-are-running
 
-## original blog article that me started
+## original blog article that got me started
 ## https://aws.amazon.com/blogs/compute/building-a-dynamic-dns-for-route-53-using-cloudwatch-events-and-lambda/
 
 ## code for the function in the blog article
@@ -162,7 +159,7 @@ def lambda_handler(event, context):
         else:
             # no override_zone given and no default found in the dhcp option set
             default_zone = "aws.imednet.net"
-            print('Not default domain detected. Going to use %s' % default_zone)
+            print('No default domain detected. Going to use %s' % default_zone)
             default_subdomain = default_zone.split('.')[0]
             
         
