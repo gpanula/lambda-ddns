@@ -95,6 +95,13 @@ def lambda_handler(event, context):
         default_zone = []
         default_subdomain = []
         vmzone = []
+
+        # Dynamically generate the root_domain
+        root_domain = []
+
+        # uncomment the next line to configure a default root_domain
+        # or optionally you set root_domain tag on an instance
+        root_domain = "imednet.com"
         
         # Now we loop thru all of the tags an instance has
         # we crawl thru them once and set our variables with their values here
@@ -164,12 +171,13 @@ def lambda_handler(event, context):
             
         
         # Now some more domain setup bits    
-        # default root domain and tld
-        primary_domain = default_zone.split('.')[1]
-        tld_domain = default_zone.split('.')[2]
             
-        # default root domain
-        root_domain = "%s.%s" % (primary_domain, tld_domain)
+        # if we didn't previous set a root_domain(either tag or manually defined; see above)
+        if not root_domain:
+            # then we set one here
+            primary_domain = default_zone.split('.')[1]
+            tld_domain = default_zone.split('.')[2]
+            root_domain = "%s.%s" % (primary_domain, tld_domain)
 
     
         # Here's how we will build records
