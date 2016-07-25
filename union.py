@@ -317,6 +317,7 @@ def lambda_handler(event, context):
             try:
                 # map public ip to name-public
                 name_public = name + '-public'
+                name_private = "%s.%s" % (name, default_zone)
                 modify_resource_record(default_zone_id, name, default_zone, 'A', instance.private_ip_address, mod_action)
                 modify_resource_record(default_zone_id, name_public, default_zone, 'A', instance.public_ip_address, mod_action)
                 modify_resource_record(reverse_lookup_zone_id, reversed_ip_address, 'in-addr.arpa', 'PTR', fullname, mod_action)
@@ -328,7 +329,7 @@ def lambda_handler(event, context):
                 try:
                     # map public functions to fun-public
                     fun_public = fun + '-public'
-                    modify_resource_record(zone_id, fun, vmzone, 'CNAME', instance.public_dns_name, mod_action)
+                    modify_resource_record(zone_id, fun, vmzone, 'CNAME', name_private, mod_action)
                     modify_resource_record(zone_id, fun_public, vmzone, 'CNAME', instance.public_dns_name, mod_action)
                 except BaseException as e:
                     print e
