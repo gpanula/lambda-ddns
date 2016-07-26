@@ -95,6 +95,9 @@ def lambda_handler(event, context):
         # Name is the tag Amazon uses to give an instance a friendly name
         # name is our variable for holding & modify the value of Name
         name = []
+
+        # we'll use override_name to work-around Auto-Scaling group naming
+        override_name = []
         
         # init some more variables
         target_env = []
@@ -122,6 +125,9 @@ def lambda_handler(event, context):
                 # this is used in the creation of the A record
                 name = tag.get('Value').lstrip().lower()
                 print('name is %s ' % name)
+            if 'override_name' in tag.get('Key',{}):
+                override_name = tag.get('Value').lstrip().lower()
+                print('override_name tag found with value %s' % override_name)
             if 'imednet-env' in tag.get('Key',{}):
                 # target env is where the CNAME records will get registered
                 # e.g. memcache.automation-rc-aws.imednet.com
@@ -301,7 +307,17 @@ def lambda_handler(event, context):
     
     
         print('')
+
+        # kludgy hack for auto-scaling groups 
+        # instances spun up in the ASG naturally take on the name of the group
+        if override_name == 'use_instance_id':
+            # use the instance id
+            name = instance.id
+            print("Reset name to use instance.id of %s" % instance.id)
+
+        # A record name
         a_name = "%s.%s" % (name, default_zone)
+        
         if not instance.public_ip_address:
             # host is not externally accessible aka no public name or ip address
             print('No public ip address found')
