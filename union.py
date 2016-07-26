@@ -28,6 +28,14 @@ import re
 import uuid
 import time
 import random
+# dns.resolver is from dnspython --> http://www.dnspython.org/
+# to use it with our lambda function, we need to package it up with
+# the zip file we upload to AWS
+# pip install dnspython -t /path/to/export/the/module
+# that'll put the dnspython module in /path/to/export/the/module/dns
+# we want to include the dns/ directory in our zip file
+# zip -r union.py.zip union.py dns/
+import dns.resolver
 from datetime import datetime
 
 print('Loading function ' + datetime.now().time().isoformat())
@@ -310,6 +318,39 @@ def lambda_handler(event, context):
                     modify_resource_record(zone_id, fun, vmzone, 'CNAME', a_name, mod_action)
                 except BaseException as e:
                     print e
+
+            # and because when we stop an instance, the instance loses its Public IP
+            # we need to query dns to finding lingering records pointing to name-public
+            if mod_action == 'delete':
+                name_public = name + '-public'
+                name_private = "%s.%s" % (name, default_zone)
+                public_fqdn = name_public + '.' + default_zone
+
+                # try to find a public ip address
+                # using dnspython for the dns lookup --> http://www.dnspython.org
+                dns_answers = dns.resolver.query(public_fqdn, 'A')
+                for rdata in dns_answers:
+                    try:
+                        modify_resource_record(default_zone_id, name_public, default_zone, 'A', str(rdata), mod_action)
+                    except BaseException as e:
+                        print e
+
+                for fun in funlist:
+                    #
+                    fun_public = fun + '-public'
+                    fun_fqdn = fun_public + '.' + vmzone
+
+                    # using dnspython, we do a dns dig looking for the CNAME record
+                    # dnspython --> http://www.dnspython.org/examples.html
+                    public_cname = dns.resolver.query(fun_fqdn, 'CNAME')
+                    for rdata in public_cname:
+                        try:
+                            # make sure rdata is a string
+                            modify_resource_record(zone_id, fun_public, vmzone, 'CNAME', str(rdata), mod_action)
+                        except BaseException as e:
+                            print e
+                    
+
         else:
             # host is externally accessible aka has public name and ip address
             print('Found public ip address of %s' % instance.public_ip_address)
