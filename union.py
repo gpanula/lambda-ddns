@@ -79,6 +79,9 @@ def lambda_handler(event, context):
 
     # get the region of the event
     region = event['region']
+
+    # get the state from the event
+    state = event['detail']['state']
     
 
     # now we grab info on that instance
@@ -91,6 +94,7 @@ def lambda_handler(event, context):
         print('')
         print('################################################################')
         print('#########     instance id %s                 ###########' % instance.id)
+        print('#########     state is %s                    ###########' % state)
         print('################################################################')
         
         # init name just in case the instance doesn't have a Name
