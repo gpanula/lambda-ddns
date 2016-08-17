@@ -486,10 +486,10 @@ def reverse_list(list):
 
 def get_reversed_domain_prefix(subnet_mask, private_ip):
     """Uses the mask to get the zone prefix for the reverse lookup zone"""
-    if 32 >= subnet_mask >= 24:
+    if 32 >= subnet_mask > 16:
         third_octet = re.search('\d{1,3}.\d{1,3}.\d{1,3}.',private_ip)
         return third_octet.group(0)
-    elif 24 > subnet_mask >= 16:
+    elif 16 > subnet_mask > 9:
         second_octet = re.search('\d{1,3}.\d{1,3}.', private_ip)
         return second_octet.group(0)
     else:
