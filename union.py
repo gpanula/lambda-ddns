@@ -94,7 +94,7 @@ def lambda_handler(event, context):
         print('')
         print('################################################################')
         print('#########     instance id %s                 ###########' % instance.id)
-        print('#########     state is %s                    ###########' % state)
+        print('#########     instance state is %s           ###########' % state)
         print('################################################################')
         
         # init name just in case the instance doesn't have a Name
