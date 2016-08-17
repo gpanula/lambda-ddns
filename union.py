@@ -503,7 +503,7 @@ def create_reverse_lookup_zone(instance, reversed_domain_prefix, region):
         Name = reversed_domain_prefix + 'in-addr.arpa.',
         VPC = {
             'VPCRegion':region,
-            'VPCId': instance['Reservations'][0]['Instances'][0]['VpcId']
+            'VPCId':vpc_id
         },
         CallerReference=str(uuid.uuid1()),
         HostedZoneConfig={
