@@ -309,7 +309,7 @@ def lambda_handler(event, context):
             print('No matching reverse lookup zone')
             # create private hosted zone for reverse lookups
             if state == 'running':
-                create_reverse_lookup_zone(instance, reversed_domain_prefix, region)
+                create_reverse_lookup_zone(instance, reversed_domain_prefix, region, vpc_id)
                 reverse_lookup_zone_id = get_zone_id(reversed_lookup_zone)
     
     
@@ -496,7 +496,7 @@ def get_reversed_domain_prefix(subnet_mask, private_ip):
         first_octet = re.search('\d{1,3}.', private_ip)
         return first_octet.group(0)
 
-def create_reverse_lookup_zone(instance, reversed_domain_prefix, region):
+def create_reverse_lookup_zone(instance, reversed_domain_prefix, region, vpc_id):
     """Creates the reverse lookup zone."""
     print('Creating reverse lookup zone %s' % reversed_domain_prefix + 'in.addr.arpa.')
     route53.create_hosted_zone(
