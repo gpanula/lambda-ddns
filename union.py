@@ -76,6 +76,9 @@ def lambda_handler(event, context):
     
     # get the instance id from the event message
     instance_id = event['detail']['instance-id']
+
+    # get the region of the event
+    region = event['region']
     
 
     # now we grab info on that instance
